@@ -6,6 +6,7 @@ import CandidateDetails from "./components/CandidateDetails";
 import ForensicChatCompanion from "./components/ForensicChatCompanion";
 import InterviewGenerator from "./components/InterviewGenerator";
 import CandidateComparison from "./components/CandidateComparison";
+import InstallModal from "./components/InstallModal";
 import { 
   Users, 
   UserCheck, 
@@ -29,7 +30,8 @@ import {
   Activity,
   MessageSquare,
   HelpCircle,
-  FolderSync
+  FolderSync,
+  Download
 } from "lucide-react";
 
 // Pre-seeded candidates for immediate recruiter workspace evaluation
@@ -258,6 +260,34 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // PWA Installation state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isInstallBannerDismissed, setIsInstallBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const triggerNativeInstall = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === "accepted") {
+          console.log("User accepted the install prompt");
+          setDeferredPrompt(null);
+        }
+      });
+    }
+  };
+
   // Load and save to localStorage
   useEffect(() => {
     const cached = localStorage.getItem("forensic_candidates");
@@ -345,8 +375,13 @@ export default function App() {
         {/* Sidebar Header */}
         <div className="p-5 border-b border-slate-900 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 rounded-lg shadow-md border border-amber-400/20">
-              <Sparkles className="w-4.5 h-4.5 text-slate-950 animate-pulse" />
+            <div className="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/30 shadow-md shrink-0 bg-slate-900">
+              <img 
+                src="/icon.jpg" 
+                alt="ForensiCV logo" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-50 font-display tracking-tight leading-none flex items-center gap-1.5">
@@ -615,7 +650,18 @@ export default function App() {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-900 bg-slate-950/80 text-[10px] text-slate-600 font-mono flex flex-col gap-1.5">
+        <div className="p-4 border-t border-slate-900 bg-slate-950/80 text-[10px] text-slate-600 font-mono flex flex-col gap-2">
+          <button
+            onClick={() => {
+              setIsInstallModalOpen(true);
+              setSidebarOpen(false);
+            }}
+            className="w-full mb-2 py-2 px-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold rounded-xl text-[11px] transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/5 hover:shadow-amber-500/15 transform active:scale-[0.98]"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install ForensiCV PWA</span>
+          </button>
+          
           <p className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>Node Secure API active</span>
@@ -636,6 +682,15 @@ export default function App() {
             >
               <Menu className="w-5 h-5" />
             </button>
+            
+            {/* Custom App Icon in Header Dashboard */}
+            <img 
+              src="/icon.jpg" 
+              alt="ForensiCV Logo" 
+              className="w-9 h-9 rounded-lg object-cover border border-amber-500/30 shadow-md flex-shrink-0"
+              referrerPolicy="no-referrer"
+            />
+
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[9px] font-bold font-mono text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-500/25 tracking-widest uppercase">
@@ -659,8 +714,17 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <div className="bg-slate-900/80 border border-slate-850 rounded-xl px-3 py-2 flex items-center gap-2.5 select-none shadow-inner">
+          <div className="flex items-center gap-2 md:gap-3 text-xs">
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold rounded-xl text-[11px] transition flex items-center gap-1.5 shadow-md shadow-amber-500/5 hover:shadow-amber-500/15 transform hover:scale-[1.02] active:scale-[0.98]"
+              title="Install ForensiCV PWA"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install App</span>
+            </button>
+
+            <div className="hidden sm:flex bg-slate-900/80 border border-slate-850 rounded-xl px-3 py-2 items-center gap-2.5 select-none shadow-inner">
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
               <div>
                 <p className="text-[8px] font-mono text-slate-500 uppercase tracking-wider leading-none">Security Active</p>
@@ -673,6 +737,51 @@ export default function App() {
         {/* Command Terminal Main Body Area */}
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
           
+          {/* PWA Install Promo Banner */}
+          {!isInstallBannerDismissed && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-900 border border-amber-500/20 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl shadow-amber-500/5 relative overflow-hidden animate-fadeIn" id="pwa-install-banner">
+              {/* Subtle background glow */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+              
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left z-10">
+                <img 
+                  src="/icon.jpg" 
+                  alt="ForensiCV Logo" 
+                  className="w-14 h-14 rounded-xl object-cover border-2 border-amber-500/30 shadow-md flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-100 font-display uppercase tracking-wider">Install ForensiCV PWA App</h3>
+                    <span className="bg-amber-500/10 text-amber-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-500/20">
+                      ⚡ HIGH PERFORMANCE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Unshackle your recruiter command deck with instant home screen access, high-speed cached loading, full-width viewport immersion, and offline fallback compatibility.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 z-10 w-full md:w-auto shrink-0 justify-center md:justify-end">
+                <button
+                  onClick={() => setIsInstallModalOpen(true)}
+                  className="flex-1 md:flex-initial py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/15 transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>INSTALL NOW</span>
+                </button>
+                <button
+                  onClick={() => setIsInstallBannerDismissed(true)}
+                  className="p-2.5 text-slate-400 hover:text-slate-100 bg-slate-900 border border-slate-800 rounded-xl text-xs transition hover:bg-slate-800/50 font-bold"
+                  title="Dismiss banner"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Error notification bar */}
           {errorMsg && (
             <div className="bg-rose-950/30 border border-rose-900/40 text-rose-400 p-4 rounded-xl flex items-start gap-3 text-xs animate-fadeIn shadow-lg shadow-rose-950/5">
@@ -1012,6 +1121,14 @@ export default function App() {
         </footer>
 
       </div>
+
+      {/* PWA Install Modal Overlay */}
+      <InstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        onInstall={triggerNativeInstall}
+        isNativePromptAvailable={!!deferredPrompt}
+      />
 
     </div>
   );

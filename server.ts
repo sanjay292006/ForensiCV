@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -5,10 +6,48 @@ import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PORT || "3000", 10);
 
   // Setup raw body parsing and json body parsing
   app.use(express.json({ limit: '10mb' }));
+
+  // Serve PWA Manifest
+  app.get("/manifest.json", (req, res) => {
+    res.json({
+      short_name: "ForensiCV",
+      name: "ForensiCV — Elite AI Resume Auditor & Screener",
+      description: "Elite AI-powered resume auditing and screening tool.",
+      icons: [
+        {
+          src: "/src/assets/images/forensic_icon_1784110577410.jpg",
+          type: "image/jpeg",
+          sizes: "1024x1024",
+          purpose: "any maskable"
+        }
+      ],
+      start_url: "/",
+      background_color: "#0f172a",
+      theme_color: "#f59e0b",
+      display: "standalone",
+      orientation: "portrait"
+    });
+  });
+
+  // Serve simple Service Worker for PWA compliance
+  app.get("/sw.js", (req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.send(`
+      self.addEventListener('install', (e) => {
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', (e) => {
+        return self.clients.claim();
+      });
+      self.addEventListener('fetch', (e) => {
+        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+      });
+    `);
+  });
 
   // Shared lazy Gemini client function
   let aiClient: GoogleGenAI | null = null;
@@ -656,20 +695,30 @@ Provide a side-by-side comparative synthesis in the requested JSON format.`;
     };
   }
 
-  // Vite development middleware
-  if (process.env.NODE_ENV !== "production") {
+  // Determine if running in production mode (either compiled server or explicit production env)
+  const isProd = process.env.NODE_ENV === "production" || 
+                 process.argv[1]?.endsWith("server.cjs") || 
+                 process.argv[1]?.includes("dist");
+
+  if (isProd) {
+    // Serve production static assets dynamically based on the executing file path
+    const distPath = (process.argv[1]?.endsWith("server.cjs") || process.argv[1]?.includes("dist"))
+      ? path.dirname(process.argv[1])
+      : path.join(process.cwd(), "dist");
+
+    console.log(`[Production] Serving static files from: ${distPath}`);
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
+    // Vite development middleware
+    console.log("[Development] Starting Vite development middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    // Serve production static assets
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

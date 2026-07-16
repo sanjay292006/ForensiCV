@@ -1,0 +1,6 @@
+{
+  "name": "ForensiCV - Forensic Resume & ATS Verifier",
+  "description": "An automated forensic resume screening dashboard that evaluates AI generation, chronologies, and skill exaggeration, featuring an AI resume humanizer and real-time ATS parser compatibility scan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

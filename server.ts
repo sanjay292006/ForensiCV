@@ -11,44 +11,6 @@ async function startServer() {
   // Setup raw body parsing and json body parsing
   app.use(express.json({ limit: '10mb' }));
 
-  // Serve PWA Manifest
-  app.get("/manifest.json", (req, res) => {
-    res.json({
-      short_name: "ForensiCV",
-      name: "ForensiCV — Elite AI Resume Auditor & Screener",
-      description: "Elite AI-powered resume auditing and screening tool.",
-      icons: [
-        {
-          src: "/src/assets/images/forensic_icon_1784110577410.jpg",
-          type: "image/jpeg",
-          sizes: "1024x1024",
-          purpose: "any maskable"
-        }
-      ],
-      start_url: "/",
-      background_color: "#0f172a",
-      theme_color: "#f59e0b",
-      display: "standalone",
-      orientation: "portrait"
-    });
-  });
-
-  // Serve simple Service Worker for PWA compliance
-  app.get("/sw.js", (req, res) => {
-    res.setHeader("Content-Type", "application/javascript");
-    res.send(`
-      self.addEventListener('install', (e) => {
-        self.skipWaiting();
-      });
-      self.addEventListener('activate', (e) => {
-        return self.clients.claim();
-      });
-      self.addEventListener('fetch', (e) => {
-        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-      });
-    `);
-  });
-
   // Shared lazy Gemini client function
   let aiClient: GoogleGenAI | null = null;
   function getGeminiClient(): GoogleGenAI {
@@ -208,11 +170,23 @@ async function startServer() {
     required: ["humanizedSummary", "overallAdvice", "revisedBulletPoints", "fullHumanizedText"]
   };
 
+  // Helper to wrap a promise with a timeout
+  function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 10000, errorMessage: string = "API request timed out."): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(errorMessage));
+      }, timeoutMs);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      clearTimeout(timeoutId);
+    });
+  }
+
   // REST API Route to analyze raw parsed resume text
   app.post("/api/analyze", async (req, res) => {
+    const { resumeText, customPrompt = "" } = req.body;
     try {
-      const { resumeText, customPrompt = "" } = req.body;
-
       if (!resumeText || resumeText.trim().length === 0) {
         return res.status(400).json({ error: "No resume text was provided for analysis." });
       }
@@ -231,11 +205,12 @@ Resume Raw Text:
 ${resumeText}
 -----------------------------------------------------`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: userMessage,
-        config: {
-          systemInstruction: `You are a Senior Technical Recruiter and Resume Fraud Auditor. 
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: userMessage,
+          config: {
+            systemInstruction: `You are a Senior Technical Recruiter and Resume Fraud Auditor. 
 Analyze the resume text for absolute integrity. Provide structured analysis for:
 - Skill Exaggeration (excessive tools with short tenure, or too high years of experience)
 - Timeline Gaps & Overlaps (overlapping fulltime jobs, weird gaps, promotions too rapid)
@@ -244,11 +219,14 @@ Analyze the resume text for absolute integrity. Provide structured analysis for:
 - Missing projects or poor skill justification (skills mentioned in summary or list with zero project references).
 
 Output the results strictly matching the requested JSON Schema.`,
-          responseMimeType: "application/json",
-          responseSchema: candidateSchema,
-          temperature: 0.1,
-        }
-      });
+            responseMimeType: "application/json",
+            responseSchema: candidateSchema,
+            temperature: 0.1,
+          }
+        }),
+        10000,
+        "Gemini API timed out during analysis."
+      );
 
       const responseText = response.text;
       if (!responseText) {
@@ -259,19 +237,25 @@ Output the results strictly matching the requested JSON Schema.`,
       res.json(analysisResult);
 
     } catch (error: any) {
-      console.error("Analysis Error:", error);
-      res.status(500).json({ 
-        error: "Failed to analyze resume with AI.", 
-        details: error?.message || error
-      });
+      console.warn("Analysis Error - falling back to local simulation:", error);
+      try {
+        const fallbackResult = createFallbackAnalysis(resumeText || "");
+        fallbackResult.verdictExplanation = `[Local Simulation Mode - API Warning: ${error?.message || error}] ` + fallbackResult.verdictExplanation;
+        res.json(fallbackResult);
+      } catch (fallbackErr: any) {
+        console.error("Fallback analysis failed:", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to analyze resume with AI.", 
+          details: error?.message || error
+        });
+      }
     }
   });
 
   // REST API Route to humanize/rewrite exaggerated or AI-generated resume text
   app.post("/api/humanize", async (req, res) => {
+    const { resumeText } = req.body;
     try {
-      const { resumeText } = req.body;
-
       if (!resumeText || resumeText.trim().length === 0) {
         return res.status(400).json({ error: "No resume text was provided for humanization." });
       }
@@ -290,11 +274,12 @@ Resume Raw Text:
 ${resumeText}
 -----------------------------------------------------`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: userMessage,
-        config: {
-          systemInstruction: `You are an elite Resume Editor and Professional Ghostwriter specializing in Tech and Engineering.
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: userMessage,
+          config: {
+            systemInstruction: `You are an elite Resume Editor and Professional Ghostwriter specializing in Tech and Engineering.
 Your goal is to rewrite resumes to make them look authentic, credible, and human-written (not AI-generated or hyped up).
 
 Follow these rules:
@@ -302,11 +287,14 @@ Follow these rules:
 2. Standardize chronology: If there are obvious impossibilities (e.g., 15 years of React, when React was released in 2013), rewrite to list realistic, credible years of experience.
 3. Ground extreme accomplishments: If the candidate claims they saved $24 Million or cut AWS bills by 99% during a 3-month internship, tone it down to a highly impressive but believable and groundable accomplishment.
 4. Output the results strictly matching the requested JSON Schema.`,
-          responseMimeType: "application/json",
-          responseSchema: humanizedSchema,
-          temperature: 0.2,
-        }
-      });
+            responseMimeType: "application/json",
+            responseSchema: humanizedSchema,
+            temperature: 0.2,
+          }
+        }),
+        10000,
+        "Gemini API timed out during humanization."
+      );
 
       const responseText = response.text;
       if (!responseText) {
@@ -317,19 +305,23 @@ Follow these rules:
       res.json(result);
 
     } catch (error: any) {
-      console.error("Humanize Error:", error);
-      res.status(500).json({ 
-        error: "Failed to humanize resume with AI.", 
-        details: error?.message || error
-      });
+      console.warn("Humanize Error - falling back to local simulation:", error);
+      try {
+        res.json(createFallbackHumanize(resumeText || ""));
+      } catch (fallbackErr: any) {
+        console.error("Fallback humanize failed:", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to humanize resume with AI.", 
+          details: error?.message || error
+        });
+      }
     }
   });
 
   // REST API Route for Forensic Auditor Chat Companion
   app.post("/api/chat-companion", async (req, res) => {
+    const { candidateName, resumeText, messages } = req.body;
     try {
-      const { candidateName, resumeText, messages } = req.body;
-
       if (!candidateName || !messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: "Required parameters (candidateName, messages) are missing." });
       }
@@ -356,23 +348,32 @@ ${resumeText || "No resume text provided."}
         parts: [{ text: m.content }]
       }));
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents,
-        config: {
-          systemInstruction,
-          temperature: 0.3,
-        }
-      });
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.3,
+          }
+        }),
+        8000,
+        "Chat Companion timed out."
+      );
 
       res.json({ reply: response.text || "I was unable to analyze this question." });
 
     } catch (error: any) {
-      console.error("Chat Companion Error:", error);
-      res.status(500).json({ 
-        error: "Failed to query chat companion.", 
-        details: error?.message || error
-      });
+      console.warn("Chat Companion Error - falling back to local simulation:", error);
+      try {
+        res.json({ reply: `[Local Simulation Mode - API Warning: ${error?.message || error}]\n\n` + getMockChatReply(candidateName || "Candidate", messages || []) });
+      } catch (fallbackErr: any) {
+        console.error("Fallback chat failed:", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to query chat companion.", 
+          details: error?.message || error
+        });
+      }
     }
   });
 
@@ -398,9 +399,8 @@ ${resumeText || "No resume text provided."}
   };
 
   app.post("/api/interview-questions", async (req, res) => {
+    const { candidateName, resumeText, indicators, skills } = req.body;
     try {
-      const { candidateName, resumeText, indicators, skills } = req.body;
-
       if (!candidateName) {
         return res.status(400).json({ error: "candidateName is a required parameter." });
       }
@@ -427,17 +427,21 @@ ${JSON.stringify(skills || [])}
 
 Respond strictly matching the requested JSON Schema.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: userMessage,
-        config: {
-          systemInstruction: `You are an elite Technical Interviewer and Resume Fraud Auditor. 
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: userMessage,
+          config: {
+            systemInstruction: `You are an elite Technical Interviewer and Resume Fraud Auditor. 
 Generate extremely targeted, high-impact technical interview questions that a non-technical recruiter can ask to quickly expose whether a candidate actually did the work they claim, or if they are exaggerating their role or using AI-generated boilerplate.`,
-          responseMimeType: "application/json",
-          responseSchema: questionsSchema,
-          temperature: 0.3,
-        }
-      });
+            responseMimeType: "application/json",
+            responseSchema: questionsSchema,
+            temperature: 0.3,
+          }
+        }),
+        10000,
+        "Interview Questions API timed out."
+      );
 
       const responseText = response.text;
       if (!responseText) {
@@ -448,11 +452,16 @@ Generate extremely targeted, high-impact technical interview questions that a no
       res.json(result);
 
     } catch (error: any) {
-      console.error("Interview Questions Error:", error);
-      res.status(500).json({ 
-        error: "Failed to generate interview questions with AI.", 
-        details: error?.message || error
-      });
+      console.warn("Interview Questions Error - falling back to local simulation:", error);
+      try {
+        res.json(createFallbackQuestions(candidateName || "Candidate"));
+      } catch (fallbackErr: any) {
+        console.error("Fallback questions failed:", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to generate interview questions with AI.", 
+          details: error?.message || error
+        });
+      }
     }
   });
 
@@ -470,9 +479,8 @@ Generate extremely targeted, high-impact technical interview questions that a no
   };
 
   app.post("/api/compare", async (req, res) => {
+    const { candidate1, candidate2 } = req.body;
     try {
-      const { candidate1, candidate2 } = req.body;
-
       if (!candidate1 || !candidate2) {
         return res.status(400).json({ error: "Both candidate1 and candidate2 are required for comparison." });
       }
@@ -505,16 +513,20 @@ Candidate 2: ${candidate2.name}
 
 Provide a side-by-side comparative synthesis in the requested JSON format.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: userMessage,
-        config: {
-          systemInstruction: `You are an elite Senior Recruiting Director and Technical HR Investigator. Compare two candidate profiles objectively, detailing who possesses genuine, authentic experience versus who shows patterns of AI-generated content or inflation.`,
-          responseMimeType: "application/json",
-          responseSchema: compareSchema,
-          temperature: 0.2,
-        }
-      });
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: userMessage,
+          config: {
+            systemInstruction: `You are an elite Senior Recruiting Director and Technical HR Investigator. Compare two candidate profiles objectively, detailing who possesses genuine, authentic experience versus who shows patterns of AI-generated content or inflation.`,
+            responseMimeType: "application/json",
+            responseSchema: compareSchema,
+            temperature: 0.2,
+          }
+        }),
+        10000,
+        "Comparison API timed out."
+      );
 
       const responseText = response.text;
       if (!responseText) {
@@ -525,11 +537,16 @@ Provide a side-by-side comparative synthesis in the requested JSON format.`;
       res.json(result);
 
     } catch (error: any) {
-      console.error("Comparison Error:", error);
-      res.status(500).json({ 
-        error: "Failed to compare candidates with AI.", 
-        details: error?.message || error
-      });
+      console.warn("Comparison Error - falling back to local simulation:", error);
+      try {
+        res.json(createFallbackComparison(candidate1?.name || "Candidate 1", candidate2?.name || "Candidate 2"));
+      } catch (fallbackErr: any) {
+        console.error("Fallback comparison failed:", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to compare candidates with AI.", 
+          details: error?.message || error
+        });
+      }
     }
   });
 

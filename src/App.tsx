@@ -745,7 +745,7 @@ export default function App() {
               
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left z-10">
                 <img 
-                  src="/icon.jpg" 
+                  src="/icon.png" 
                   alt="ForensiCV Logo" 
                   className="w-14 h-14 rounded-xl object-cover border-2 border-amber-500/30 shadow-md flex-shrink-0"
                   referrerPolicy="no-referrer"

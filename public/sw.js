@@ -3,8 +3,8 @@ const ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/icon.jpg",
-  "/icon-512.jpg"
+  "/icon.png",
+  "/icon-512.png"
 ];
 
 // Install Event

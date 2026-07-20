@@ -40,7 +40,7 @@ export default function InstallModal({ isOpen, onClose, onInstall, isNativePromp
         <div className="p-6 space-y-6">
           <div className="bg-slate-950/50 border border-slate-850 p-4 rounded-xl flex items-start gap-3.5">
             <img 
-              src="/icon.jpg" 
+              src="/icon.png" 
               alt="ForensiCV PWA Logo" 
               className="w-12 h-12 rounded-xl object-cover border border-amber-500/30 shadow-md flex-shrink-0"
               referrerPolicy="no-referrer"

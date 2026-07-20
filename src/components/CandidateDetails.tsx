@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Candidate, SkillItem, TimelineEvent } from "../types";
+import { generateClientFallbackHumanize } from "../lib/fallback";
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -92,17 +93,24 @@ ${skillsList}`;
     }
 
     try {
-      const response = await fetch("/api/humanize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText: textToHumanize })
-      });
+      let result;
+      try {
+        const response = await fetch("/api/humanize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeText: textToHumanize })
+        });
 
-      if (!response.ok) {
-        throw new Error("Humanizer endpoint returned an error status.");
+        if (!response.ok) {
+          throw new Error("Humanizer endpoint returned an error status.");
+        }
+
+        result = await response.json();
+      } catch (fetchErr) {
+        console.warn("Server humanize failed. Switching to client-side correction simulation:", fetchErr);
+        result = generateClientFallbackHumanize(textToHumanize);
       }
-
-      const result = await response.json();
+      
       setHumanizedResult(result);
     } catch (err: any) {
       console.error(err);

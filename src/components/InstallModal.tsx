@@ -1,296 +1,204 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title>Cookie check</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        color-scheme: light dark;
-      }
+import { useState } from "react";
+import { X, Download, Smartphone, Monitor, Share, Plus, Check } from "lucide-react";
 
-      body {
-        font-family: 'Inter', Helvetica, Arial, sans-serif;
-        background: light-dark(#F8F8F7, #191919);
-        color: light-dark(#1f1f1f, #e3e3e3);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-sizing: border-box;
-        min-height: 100vh;
-        margin: 0;
-        padding: 20px;
-        text-align: center;
-      }
+interface InstallModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onInstall: () => void;
+  isNativePromptAvailable: boolean;
+}
 
-      .container {
-        background: light-dark(#FFFFFF, #1F1F1F);
-        padding: 32px;
-        border-radius: 16px;
-        border: 1px solid light-dark(#E2E3E4, #3E3E3E);
-        max-width: min(80%, 500px);
-        width: 100%;
-        color: light-dark(#2B2D31, #D4D4D4);
-      }
+export default function InstallModal({ isOpen, onClose, onInstall, isNativePromptAvailable }: InstallModalProps) {
+  const [activeTab, setActiveTab] = useState<"ios" | "android" | "desktop">("ios");
+  const [imgError, setImgError] = useState(false);
 
-      h1 {
-        font-size: 20px;
-        font-weight: 500;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-        color: light-dark(#2B2D31, #D4D4D4);
-      }
+  if (!isOpen) return null;
 
-      p {
-        font-size: 14px;
-        color: light-dark(#2B2D31, #D4D4D4);
-        line-height: 21px;
-        margin: 0 0 1.5rem 0;
-      }
-
-      .icon {
-        margin-bottom: 1rem;
-        line-height: 0;
-      }
-
-      .button-container {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 2rem;
-      }
-
-      button {
-        background-color: light-dark(#fff, #323232);
-        color: light-dark(#2B2D31, #FCFCFC);
-        border: 1px solid light-dark(#E2E3E4, #3E3E3E);
-        border-radius: 12px;
-        padding: 8px 12px;
-        font-size: 14px;
-        line-height: 21px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        font-weight: 400;
-        font-family: 'Inter', Helvetica, Arial, sans-serif;
-        width: 100%;
-      }
-
-      button:hover {
-        background-color: light-dark(#EAEAEB, #424242);
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      /* Loading Spinner Animation */
-      .spinner {
-        margin: 0 auto 1.5rem auto;
-        width: 40px;
-        height: 40px;
-        border: 4px solid light-dark(#f0f0f0, #262626);
-        border-top: 4px solid light-dark(#076eff, #87a9ff); /* Blue color */
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-
-      .logo {
-        border-radius: 10px;
-        display: block;
-        margin: 0 auto 2rem auto;
-      }
-
-      .logo.hidden {
-        display: none;
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <img
-        class="logo"
-        src="https://www.gstatic.com/images/branding/productlogos/ai_studio/v1/web-512dp/logo_ai_studio_color_1x_web_512dp.png"
-        alt="AI Studio Logo"
-        width="256"
-        height="256"
-      />
-      <div class="spinner"></div>
-      <div id="error-ui" class="hidden">
-        <div class="icon">
-          <svg
-            version="1.1"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            width="48px"
-            height="48px"
-            fill="#D73A49"
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn" id="pwa-install-modal">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-amber-500/5 relative animate-scaleIn">
+        
+        {/* Header */}
+        <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Download className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 font-display">Install ForensiCV</h3>
+              <p className="text-[11px] text-slate-400">Add to your Home Screen for full app experience</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-100 bg-slate-800/50 rounded-lg border border-slate-700 transition"
           >
-            <path
-              d="M12,2C6.486,2,2,6.486,2,12s4.486,10,10,10s10-4.486,10-10S17.514,2,12,2z M13,17h-2v-2h2V17z M13,13h-2V7h2V13z"
-            />
-          </svg>
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div id="stepOne" class="text-container">
-          <h1>Action required to load your app</h1>
-          <p>
-            It looks like your browser is blocking a required security cookie, which is common on
-            older versions of iOS and Safari.
-          </p>
-          <div class="button-container">
-            <button id="authInSeparateWindowButton" onclick="redirectToReturnUrl(true)">Authenticate in new window</button>
+
+        {/* Main Content */}
+        <div className="p-6 space-y-6">
+          <div className="bg-slate-950/50 border border-slate-850 p-4 rounded-xl flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-xl overflow-hidden border border-amber-500/30 shadow-md shrink-0 bg-slate-900 flex items-center justify-center relative select-none flex-shrink-0">
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 font-black text-lg tracking-tight">
+                F
+              </div>
+              {!imgError && (
+                <img 
+                  src="/icon.png" 
+                  alt="ForensiCV PWA Logo" 
+                  className="w-full h-full object-cover z-10"
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)}
+                />
+              )}
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-200">ForensiCV Web Application</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Unlock instant resume auditing, biometric timeline screening, and offline AI chat companions directly from your mobile dock or desktop.
+              </p>
+            </div>
           </div>
+
+          {isNativePromptAvailable ? (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-300 text-center">
+                Your browser supports one-click installation. Click the button below to install immediately!
+              </p>
+              <button
+                onClick={() => {
+                  onInstall();
+                  onClose();
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 hover:shadow-amber-500/25 transform active:scale-[0.98]"
+              >
+                <Download className="w-4 h-4" />
+                <span>INSTALL APP NOW</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Tab Selector */}
+              <div className="flex gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-850">
+                <button
+                  onClick={() => setActiveTab("ios")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                    activeTab === "ios" 
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>iOS (Safari)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("android")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                    activeTab === "android" 
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Android (Chrome)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("desktop")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                    activeTab === "desktop" 
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>Desktop</span>
+                </button>
+              </div>
+
+              {/* Instructions Tab Panels */}
+              {activeTab === "ios" && (
+                <div className="space-y-3.5 animate-fadeIn">
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">1</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Open <span className="font-semibold text-slate-100">Safari Browser</span> and tap the <span className="inline-flex items-center gap-1 bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-400 border border-slate-700"><Share className="w-3 h-3 inline" /> Share</span> button in the navigation bar.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">2</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Scroll down through the shared options list and tap <span className="font-semibold text-slate-100">“Add to Home Screen”</span>.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">3</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Tap <span className="font-semibold text-slate-100 text-amber-400">“Add”</span> in the top-right corner to pin the high-performance app icon to your phone!
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "android" && (
+                <div className="space-y-3.5 animate-fadeIn">
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">1</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Tap the <span className="font-semibold text-slate-100">Three Dots Menu (⋮)</span> in the top right-hand corner of Chrome.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">2</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Select <span className="font-semibold text-slate-100">“Install App”</span> or <span className="font-semibold text-slate-100">“Add to Home screen”</span>.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">3</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Follow the prompts to add the application, allowing background synchronization and faster load speeds.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "desktop" && (
+                <div className="space-y-3.5 animate-fadeIn">
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">1</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Look at the right side of your browser's address bar (URL bar).
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">2</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Click the <span className="font-semibold text-slate-100 text-amber-400">“Install” or Monitor icon</span> next to the bookmark star.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center font-mono text-[10px] shrink-0 border border-slate-700">3</span>
+                    <p className="text-slate-300 leading-relaxed pt-0.5">
+                      Confirm install to add it as a standalone app on your Dock, Taskbar, or Applications menu!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <div id="stepTwo" class="text-container hidden">
-          <h1>Action required to load your app</h1>
-          <p>
-            It looks like your browser is blocking a required security cookie, which is common on
-            older versions of iOS and Safari.
-          </p>
-          <div class="button-container">
-            <button id="interactButton" onclick="redirectToReturnUrl(false)">Close and continue</button>
-          </div>
-        </div>
-        <div id="stepThree" class="text-container hidden">
-          <h1>Almost there!</h1>
-          <p>
-            Grant permission for the required security cookie below.
-          </p>
-          <div class="button-container">
-            <button id="grantPermissionButton" onclick="grantStorageAccess()">Grant permission</button>
-          </div>
+
+        {/* Footer */}
+        <div className="p-4 bg-slate-950 border-t border-slate-850/60 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>PWA Verified</span>
+          </span>
+          <span>Requires iOS 11.3+ / Android Chrome</span>
         </div>
       </div>
     </div>
-    <script>
-      const AUTH_FLOW_TEST_COOKIE_NAME = '__SECURE-aistudio_auth_flow_may_set_cookies';
-      const COOKIE_VALUE = 'true';
-
-      function getCookie(name) {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-          let cookie = cookies[i].trim();
-          if (cookie.startsWith(name + '=')) {
-            return cookie.substring(name.length + 1);
-          }
-        }
-        return null;
-      }
-
-      function setAuthFlowTestCookie() {
-        // Set the cookie's TTL to 1 minute. This is a short lived cookie because it is only used
-        // when the user does not have an auth token or their auth token needs to be reset.
-        // Making this cookie too long-lived allows the user to get into a state where they can't
-        // mint a new auth token.
-        document.cookie = `${AUTH_FLOW_TEST_COOKIE_NAME}=${COOKIE_VALUE}; Path=/; Secure; SameSite=None; Domain=${window.location.hostname}; Partitioned; Max-Age=60;`;
-      }
-
-      /**
-       * Returns true if the test cookie is set, false otherwise.
-       */
-      function authFlowTestCookieIsSet() {
-        return getCookie(AUTH_FLOW_TEST_COOKIE_NAME) === COOKIE_VALUE;
-      }
-
-      /**
-       * Redirects to the return url. If autoClose is true, then the return url will be opened in a
-       * new window, and it will be closed automatically when the page loads.
-       * Options:
-       *   storageAccessGranted: if true, appends __storage_access_granted=1 to
-       *   the return url so the Lua auth script can set the test cookie
-       *   server-side (needed for Safari/iOS where document.cookie is blocked).
-       */
-      async function redirectToReturnUrl(autoClose, storageAccessGranted = false) {
-        const initialReturnUrlStr = new URLSearchParams(window.location.search).get('return_url');
-        const returnUrl = initialReturnUrlStr ? new URL(initialReturnUrlStr) : null;
-
-        // Prevent potentially malicious URLs from being used
-        if (returnUrl.protocol.toLowerCase() === 'javascript:') {
-          console.error('Potentially malicious return URL blocked');
-          return;
-        }
-
-        if (storageAccessGranted) {
-          returnUrl.searchParams.set('__storage_access_granted', '1');
-        }
-
-        if (autoClose) {
-          returnUrl.searchParams.set('__auto_close', '1');
-          const url = new URL(window.location.href);
-          url.searchParams.set('return_url', returnUrl.toString());
-          // Land on the cookie check page first, so the user can interact with it before proceeding
-          // to the return url where cookies can be set.
-          window.open(url.toString(), '_blank');
-          const hasAccess = await document.hasStorageAccess();
-          document.querySelector('#stepOne').classList.add('hidden');
-          if (!hasAccess) {
-            document.querySelector('#stepThree').classList.remove('hidden');
-          } else {
-            window.location.reload();
-          }
-        } else {
-          window.location.href = returnUrl.toString();
-        }
-      }
-
-      /**
-       * Grants the browser permission to set cookies. If successful, then it redirects to the
-       * return url.
-       */
-      async function grantStorageAccess() {
-        try {
-          await document.requestStorageAccess();
-          // Recent Safari/iOS versions block document.cookie entirely in
-          // cross-site iframes, even after requestStorageAccess(). Only
-          // server-side Set-Cookie headers work. Signal to the Lua auth script
-          // via query param so it can set the test cookie server-side.
-          redirectToReturnUrl(false, /* storageAccessGranted= */ true);
-        } catch (err) {
-          console.log('error after button click: ', err);
-        }
-      }
-
-      /**
-       * Verifies that the browser can set cookies. If it can, then it redirects to the return url.
-       * If it can't, then it shows the error UI.
-       */
-      function verifyCanSetCookies() {
-        setAuthFlowTestCookie();
-        if (authFlowTestCookieIsSet()) {
-          // Check if we are on the auto-close flow, and if so show the interact button.
-          const returnUrl = new URLSearchParams(window.location.search).get('return_url');
-          const autoClose = new URL(returnUrl).searchParams.has('__auto_close');
-          if (autoClose) {
-            document.querySelector('#stepOne').classList.add('hidden');
-            document.querySelector('#stepTwo').classList.remove('hidden');
-          } else {
-            redirectToReturnUrl(false);
-            return;
-          }
-        }
-        // The cookie could not be set, so initiate the recovery flow.
-        document.querySelector('.logo').classList.add('hidden');
-        document.querySelector('.spinner').classList.add('hidden');
-        document.querySelector('#error-ui').classList.remove('hidden');
-      }
-
-      // Start the cookie verification process.
-      verifyCanSetCookies();
-    </script>
-  </body>
-</html>
+  );
+}
